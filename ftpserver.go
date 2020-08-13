@@ -9,8 +9,8 @@
 package graval
 
 import (
+	"fmt"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -30,15 +30,15 @@ type FTPServerOpts struct {
 
 	// The port that the FTP should listen on. Optional, defaults to 3000. In
 	// a production environment you will probably want to change this to 21.
-	Port int
+	Port uint16
 
 	// The lower bound of port numbers that can be used for passive-mode data sockets
 	// Defaults to 0, which allows the server to pick any free port
-	PasvMinPort int
+	PasvMinPort uint16
 
 	// The upper bound of port numbers that can be used for passive-mode data sockets
 	// Defaults to 0, which allows the server to pick any free port
-	PasvMaxPort int
+	PasvMaxPort uint16
 
 	// Use this option to override the IP address that will be advertised in response to the
 	// PASV command. Most setups can ignore this, but it can be helpful in situations where
@@ -59,8 +59,8 @@ type FTPServer struct {
 	listenTo         string
 	driverFactory    FTPDriverFactory
 	logger           FTPLogger
-	pasvMinPort      int
-	pasvMaxPort      int
+	pasvMinPort      uint16
+	pasvMaxPort      uint16
 	pasvAdvertisedIp string
 	closeChan        chan struct{}
 }
@@ -196,20 +196,20 @@ func (ftpServer *FTPServer) Close() {
 	}
 }
 
-func buildTcpString(hostname string, port int) (result string) {
+func buildTcpString(hostname string, port uint16) (result string) {
 	if strings.Contains(hostname, ":") {
 		// ipv6
 		if port == 0 {
-			result = "[" + hostname + "]"
+			result = fmt.Sprintf("[%s]", hostname)
 		} else {
-			result = "[" + hostname + "]:" + strconv.Itoa(port)
+			result = fmt.Sprintf("[%s]:%d", hostname, port)
 		}
 	} else {
 		// ipv4
 		if port == 0 {
 			result = hostname
 		} else {
-			result = hostname + ":" + strconv.Itoa(port)
+			result = fmt.Sprintf("%s:%d", hostname, port)
 		}
 	}
 	return

@@ -166,7 +166,7 @@ func (cmd commandEprt) Execute(conn *ftpConn, param string) error {
 	}
 
 	host := parts[2]
-	port, err := strconv.Atoi(parts[3])
+	port, err := strconv.ParseUint(parts[3], 10, 16)
 	if err != nil {
 		return err
 	}
@@ -177,7 +177,7 @@ func (cmd commandEprt) Execute(conn *ftpConn, param string) error {
 	}
 
 	var errs error
-	_, err = conn.newActiveSocket(host, port)
+	_, err = conn.newActiveSocket(host, uint16(port))
 	if err != nil {
 		errs = multierror.Append(errs, err)
 		if _, err := conn.writeMessage(425, "Data connection failed"); err != nil {
@@ -513,16 +513,17 @@ func (cmd commandPort) Execute(conn *ftpConn, param string) error {
 		return err
 	}
 
-	portOne, err := strconv.Atoi(nums[4])
+	portOne, err := strconv.ParseUint(nums[4], 10, 16)
 	if err != nil {
 		return err
 	}
 
-	portTwo, err := strconv.Atoi(nums[5])
+	portTwo, err := strconv.ParseUint(nums[5], 10, 16)
 	if err != nil {
 		return err
 	}
-	port := (portOne * 256) + portTwo
+
+	port := uint16((portOne * 256) + portTwo)
 	host := nums[0] + "." + nums[1] + "." + nums[2] + "." + nums[3]
 
 	var errs error

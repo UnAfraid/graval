@@ -29,8 +29,8 @@ type ftpConn struct {
 	reqUser          string
 	user             string
 	renameFrom       string
-	minDataPort      int
-	maxDataPort      int
+	minDataPort      uint16
+	maxDataPort      uint16
 	pasvAdvertisedIp string
 }
 
@@ -38,7 +38,7 @@ type ftpConn struct {
 // an active net.TCPConn. The TCP connection should already be open before
 // it is handed to this functions. driver is an instance of FTPDriver that
 // will handle all auth and persistence details.
-func newFtpConn(tcpConn net.Conn, driver FTPDriver, ftpLogger FTPLogger, serverName string, minPort int, maxPort int, pasvAdvertisedIp string) *ftpConn {
+func newFtpConn(tcpConn net.Conn, driver FTPDriver, ftpLogger FTPLogger, serverName string, minPort uint16, maxPort uint16, pasvAdvertisedIp string) *ftpConn {
 	c := new(ftpConn)
 	c.namePrefix = "/"
 	c.conn = tcpConn
@@ -288,7 +288,7 @@ func (ftpConn *ftpConn) newPassiveSocket() (*ftpPassiveSocket, error) {
 	return socket, nil
 }
 
-func (ftpConn *ftpConn) newActiveSocket(host string, port int) (*ftpActiveSocket, error) {
+func (ftpConn *ftpConn) newActiveSocket(host string, port uint16) (*ftpActiveSocket, error) {
 	if ftpConn.dataConn != nil {
 		ftpConn.dataConn.Close()
 		ftpConn.dataConn = nil
