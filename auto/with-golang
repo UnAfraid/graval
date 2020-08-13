@@ -1,7 +1,0 @@
-#!/bin/bash -eu
-#
-# Operate in environment suitable for running go
-
-cd $(dirname $0)/..
-
-docker-compose run --rm dev "${@-sh}"
