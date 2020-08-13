@@ -96,6 +96,7 @@ func serverOptsWithDefaults(opts *FTPServerOpts) *FTPServerOpts {
 	newOpts.PasvMaxPort = opts.PasvMaxPort
 	newOpts.PasvAdvertisedIp = opts.PasvAdvertisedIp
 	newOpts.Factory = opts.Factory
+	newOpts.Logger = opts.Logger
 
 	return &newOpts
 }
