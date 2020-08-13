@@ -18,7 +18,7 @@ type FTPDriverFactory interface {
 type FTPDriver interface {
 	// params  - username, password
 	// returns - true if the provided details are valid
-	Authenticate(string, string) bool
+	Authenticate(string, string, string) (bool, error)
 
 	// params  - a file path
 	// returns - an int with the number of bytes in the file or -1 if the file

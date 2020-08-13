@@ -14,7 +14,6 @@
 package main
 
 import (
-	"github.com/yob/graval"
 	"io"
 	"io/ioutil"
 	"log"
@@ -23,6 +22,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/UnAfraid/graval"
 )
 
 const (
@@ -37,8 +38,8 @@ const (
 // drivers are required to implement.
 type MemDriver struct{}
 
-func (driver *MemDriver) Authenticate(user string, pass string) bool {
-	return user == "test" && pass == "1234"
+func (driver *MemDriver) Authenticate(user string, pass string, remoteIp string) (bool, error) {
+	return user == "test" && pass == "1234", nil
 }
 func (driver *MemDriver) Bytes(path string) (bytes int64) {
 	switch path {
@@ -113,6 +114,7 @@ func main() {
 		ServerName:  "graval-mem, the in memory FTP server",
 		PasvMinPort: 60200,
 		PasvMaxPort: 60300,
+		Logger:      graval.NewDefaultFtpLogger(),
 	}
 	ftpServer := graval.NewFTPServer(opts)
 

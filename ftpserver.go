@@ -45,6 +45,9 @@ type FTPServerOpts struct {
 	// the FTP server is behind a NAT gateway or load balancer and the public IP used by
 	// clients is different to the IP the server is directly listening on
 	PasvAdvertisedIp string
+
+	// The logger implementation
+	Logger FTPLogger
 }
 
 // FTPServer is the root of your FTP application. You should instantiate one
@@ -55,7 +58,7 @@ type FTPServer struct {
 	serverName       string
 	listenTo         string
 	driverFactory    FTPDriverFactory
-	logger           *ftpLogger
+	logger           FTPLogger
 	pasvMinPort      int
 	pasvMaxPort      int
 	pasvAdvertisedIp string
@@ -120,7 +123,7 @@ func NewFTPServer(opts *FTPServerOpts) *FTPServer {
 	s.listenTo = buildTcpString(opts.Hostname, opts.Port)
 	s.serverName = opts.ServerName
 	s.driverFactory = opts.Factory
-	s.logger = newFtpLogger("")
+	s.logger = opts.Logger
 	s.pasvMinPort = opts.PasvMinPort
 	s.pasvMaxPort = opts.PasvMaxPort
 	s.pasvAdvertisedIp = opts.PasvAdvertisedIp
@@ -145,7 +148,9 @@ func (ftpServer *FTPServer) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
-	ftpServer.logger.Printf("listening on %s", listener.Addr().String())
+	if ftpServer.logger != nil {
+		ftpServer.logger.Infof("listening on %s", listener.Addr().String())
+	}
 
 	for {
 		select {
@@ -161,21 +166,24 @@ func (ftpServer *FTPServer) ListenAndServe() error {
 				// package is not legal to include, hence the string match. :(
 				continue
 			} else if err != nil {
-				ftpServer.logger.Printf("listening error: %+v", err)
+				if ftpServer.logger != nil {
+					ftpServer.logger.Errorf("listening error %v", err)
+				}
 				return err
 			}
 
 			driver, err := ftpServer.driverFactory.NewDriver()
 			if err != nil {
-				ftpServer.logger.Print("Error creating driver, aborting client connection")
+				if ftpServer.logger != nil {
+					ftpServer.logger.Errorf("Error creating driver, aborting client connection %v", err)
+				}
 			} else {
-				ftpConn := newftpConn(tcpConn, driver, ftpServer.serverName, ftpServer.pasvMinPort, ftpServer.pasvMaxPort, ftpServer.pasvAdvertisedIp)
+				ftpConn := newFtpConn(tcpConn, driver, ftpServer.logger, ftpServer.serverName, ftpServer.pasvMinPort, ftpServer.pasvMaxPort, ftpServer.pasvAdvertisedIp)
 				go ftpConn.Serve()
 			}
 
 		}
 	}
-	return nil
 }
 
 // Close signals the server to stop. It may take a couple of seconds. Do not call ListenAndServe again after this, build a new FTPServer.

@@ -54,7 +54,7 @@ func NewDirItem(name string, modtime time.Time) os.FileInfo {
 func NewFileItem(name string, bytes int64, modtime time.Time) os.FileInfo {
 	f := new(ftpFileInfo)
 	f.name = name
-	f.bytes = int64(bytes)
+	f.bytes = bytes
 	f.mode = 0666
 	f.modtime = modtime
 	return f

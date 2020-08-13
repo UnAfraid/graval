@@ -29,22 +29,25 @@ type ftpActiveSocket struct {
 	conn   *net.TCPConn
 	host   string
 	port   int
-	logger *ftpLogger
+	logger FTPLogger
 }
 
-func newActiveSocket(host string, port int, logger *ftpLogger) (*ftpActiveSocket, error) {
+func newActiveSocket(host string, port int, logger FTPLogger) (*ftpActiveSocket, error) {
 	connectTo := buildTcpString(host, port)
-	logger.Print("Opening active data connection to " + connectTo)
-	raddr, err := net.ResolveTCPAddr("tcp", connectTo)
+	if logger != nil {
+		logger.Debug("Opening active data connection to ", connectTo)
+	}
+
+	remoteAddress, err := net.ResolveTCPAddr("tcp", connectTo)
 	if err != nil {
-		logger.Print(err)
 		return nil, err
 	}
-	tcpConn, err := net.DialTCP("tcp", nil, raddr)
+
+	tcpConn, err := net.DialTCP("tcp", nil, remoteAddress)
 	if err != nil {
-		logger.Print(err)
 		return nil, err
 	}
+
 	socket := new(ftpActiveSocket)
 	socket.conn = tcpConn
 	socket.host = host
@@ -77,10 +80,10 @@ type ftpPassiveSocket struct {
 	conn     *net.TCPConn
 	port     int
 	listenIP string
-	logger   *ftpLogger
+	logger   FTPLogger
 }
 
-func newPassiveSocket(listenIP string, minPort int, maxPort int, logger *ftpLogger) (*ftpPassiveSocket, error) {
+func newPassiveSocket(listenIP string, minPort int, maxPort int, logger FTPLogger) (*ftpPassiveSocket, error) {
 	socket := new(ftpPassiveSocket)
 	socket.logger = logger
 	socket.listenIP = listenIP
@@ -117,28 +120,32 @@ func (socket *ftpPassiveSocket) Write(p []byte) (n int, err error) {
 }
 
 func (socket *ftpPassiveSocket) Close() error {
-	socket.logger.Print("closing passive data socket")
+	if socket.logger != nil {
+		socket.logger.Debug("closing passive data socket")
+	}
 	if socket.conn != nil {
 		return socket.conn.Close()
 	}
 	return nil
 }
 
-func (socket *ftpPassiveSocket) ListenAndServe(minPort int, maxPort int) {
+func (socket *ftpPassiveSocket) ListenAndServe(minPort int, maxPort int) error {
 	listener, err := socket.netListenerInRange(minPort, maxPort)
 	if err != nil {
-		socket.logger.Print(err)
-		return
+		return err
 	}
 	defer listener.Close()
+
 	add := listener.Addr().(*net.TCPAddr)
 	socket.port = add.Port
+
 	tcpConn, err := listener.AcceptTCP()
 	if err != nil {
-		socket.logger.Print(err)
-		return
+		return err
 	}
+
 	socket.conn = tcpConn
+	return nil
 }
 
 func (socket *ftpPassiveSocket) waitForOpenSocket() bool {
@@ -150,9 +157,11 @@ func (socket *ftpPassiveSocket) waitForOpenSocket() bool {
 		if retries > 3 {
 			return false
 		}
-		socket.logger.Print("sleeping, socket isn't open")
-		sleepMs := time.Duration(500 * (retries + 1))
-		time.Sleep(sleepMs * time.Millisecond)
+		if socket.logger != nil {
+			socket.logger.Debug("sleeping, socket isn't open")
+		}
+		duration := time.Duration(500*(retries+1)) * time.Millisecond
+		time.Sleep(duration)
 		retries += 1
 	}
 	return true
@@ -166,7 +175,7 @@ func (socket *ftpPassiveSocket) netListenerInRange(min, max int) (*net.TCPListen
 			return l.(*net.TCPListener), nil
 		}
 	}
-	return nil, errors.New("Unable to find available port to listen on")
+	return nil, errors.New("unable to find available port to listen on")
 }
 
 func randomPort(min, max int) int {

@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-multierror"
 )
 
 type ftpConn struct {
@@ -20,7 +22,7 @@ type ftpConn struct {
 	controlWriter    *bufio.Writer
 	dataConn         ftpDataSocket
 	driver           FTPDriver
-	logger           *ftpLogger
+	logger           FTPLogger
 	serverName       string
 	sessionId        string
 	namePrefix       string
@@ -36,7 +38,7 @@ type ftpConn struct {
 // an active net.TCPConn. The TCP connection should already be open before
 // it is handed to this functions. driver is an instance of FTPDriver that
 // will handle all auth and persistence details.
-func newftpConn(tcpConn net.Conn, driver FTPDriver, serverName string, minPort int, maxPort int, pasvAdvertisedIp string) *ftpConn {
+func newFtpConn(tcpConn net.Conn, driver FTPDriver, ftpLogger FTPLogger, serverName string, minPort int, maxPort int, pasvAdvertisedIp string) *ftpConn {
 	c := new(ftpConn)
 	c.namePrefix = "/"
 	c.conn = tcpConn
@@ -44,7 +46,7 @@ func newftpConn(tcpConn net.Conn, driver FTPDriver, serverName string, minPort i
 	c.controlWriter = bufio.NewWriter(tcpConn)
 	c.driver = driver
 	c.sessionId = newSessionId()
-	c.logger = newFtpLogger(c.sessionId)
+	c.logger = ftpLogger
 	c.serverName = serverName
 	c.minDataPort = minPort
 	c.maxDataPort = maxPort
@@ -69,54 +71,94 @@ func newSessionId() string {
 // message when the connection closes. This loop will be running inside a
 // goroutine, so use this channel to be notified when the connection can be
 // cleaned up.
-func (ftpConn *ftpConn) Serve() {
+func (ftpConn *ftpConn) Serve() error {
 	defer func() {
 		if r := recover(); r != nil {
-			ftpConn.logger.Printf("Recovered in ftpConn Serve: %s", r)
+			if ftpConn.logger != nil {
+				ftpConn.logger.Warnf("Recovered in ftpConn Serve %v", r)
+			}
 		}
 
-		ftpConn.Close()
+		if err := ftpConn.Close(); err != nil {
+			if ftpConn.logger != nil {
+				ftpConn.logger.Warnf("failed to close connection %v", err)
+			}
+		}
 	}()
 
-	ftpConn.logger.Printf("Connection Established (local: %s, remote: %s)", ftpConn.localIP(), ftpConn.remoteIP())
+	if ftpConn.logger != nil {
+		ftpConn.logger.Debugf("Connection Established (local: %s, remote: %s)", ftpConn.localIP(), ftpConn.remoteIP())
+	}
+
 	// send welcome
-	ftpConn.writeMessage(220, ftpConn.serverName)
+	_, err := ftpConn.writeMessage(220, ftpConn.serverName)
+	if err != nil {
+		return err
+	}
 	// read commands
 	for {
 		line, err := ftpConn.controlReader.ReadString('\n')
 		if err != nil {
 			break
 		}
-		ftpConn.receiveLine(line)
+
+		if err := ftpConn.receiveLine(line); err != nil {
+			if ftpConn.logger != nil {
+				ftpConn.logger.Warnf("failed to process line: %s - %v", line, err)
+			}
+		}
 	}
-	ftpConn.logger.Print("Connection Terminated")
+
+	if ftpConn.logger != nil {
+		ftpConn.logger.Debug("Connection Terminated")
+	}
+	return nil
 }
 
 // Close will manually close this connection, even if the client isn't ready.
-func (ftpConn *ftpConn) Close() {
-	ftpConn.conn.Close()
-	if ftpConn.dataConn != nil {
-		ftpConn.dataConn.Close()
+func (ftpConn *ftpConn) Close() error {
+	var errs error
+	if err := ftpConn.conn.Close(); err != nil {
+		errs = multierror.Append(errs, err)
 	}
+
+	if ftpConn.dataConn != nil {
+		if err := ftpConn.dataConn.Close(); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+
+	return errs
 }
 
 // receiveLine accepts a single line FTP command and co-ordinates an
 // appropriate response.
-func (ftpConn *ftpConn) receiveLine(line string) {
+func (ftpConn *ftpConn) receiveLine(line string) error {
 	command, param := ftpConn.parseLine(line)
-	ftpConn.logger.PrintCommand(command, param)
+	if ftpConn.logger != nil {
+		if command == "PASS" {
+			ftpConn.logger.Debugf("PASS ***")
+		} else {
+			ftpConn.logger.Debugf("%s %s", command, param)
+		}
+	}
+
 	cmdObj := commands[command]
 	if cmdObj == nil {
-		ftpConn.writeMessage(500, "Command not found")
-		return
+		_, err := ftpConn.writeMessage(500, "Command not found")
+		return err
 	}
+
 	if cmdObj.RequireParam() && param == "" {
-		ftpConn.writeMessage(553, "action aborted, required param missing")
-	} else if cmdObj.RequireAuth() && ftpConn.user == "" {
-		ftpConn.writeMessage(530, "not logged in")
-	} else {
-		cmdObj.Execute(ftpConn, param)
+		_, err := ftpConn.writeMessage(553, "action aborted, required param missing")
+		return err
 	}
+
+	if cmdObj.RequireAuth() && ftpConn.user == "" {
+		_, err := ftpConn.writeMessage(530, "not logged in")
+		return err
+	}
+	return cmdObj.Execute(ftpConn, param)
 }
 
 func (ftpConn *ftpConn) parseLine(line string) (string, string) {
@@ -128,21 +170,35 @@ func (ftpConn *ftpConn) parseLine(line string) (string, string) {
 }
 
 // writeMessage will send a standard FTP response back to the client.
-func (ftpConn *ftpConn) writeMessage(code int, message string) (wrote int, err error) {
-	ftpConn.logger.PrintResponse(code, message)
+func (ftpConn *ftpConn) writeMessage(code int, message string) (int, error) {
+	if ftpConn.logger != nil {
+		ftpConn.logger.Debugf("%d %s", code, message)
+	}
 	line := fmt.Sprintf("%d %s\r\n", code, message)
-	wrote, err = ftpConn.controlWriter.WriteString(line)
-	ftpConn.controlWriter.Flush()
-	return
+	wrote, err := ftpConn.controlWriter.WriteString(line)
+	if err != nil {
+		return 0, err
+	}
+	if err := ftpConn.controlWriter.Flush(); err != nil {
+		return 0, err
+	}
+	return wrote, nil
 }
 
 // writeLines will send a multiline FTP response back to the client.
-func (ftpConn *ftpConn) writeLines(code int, lines ...string) (wrote int, err error) {
+func (ftpConn *ftpConn) writeLines(code int, lines ...string) (int, error) {
 	message := strings.Join(lines, "\r\n") + "\r\n"
-	ftpConn.logger.PrintResponse(code, message)
-	wrote, err = ftpConn.controlWriter.WriteString(message)
-	ftpConn.controlWriter.Flush()
-	return
+	if ftpConn.logger != nil {
+		ftpConn.logger.Debugf("%d %s", code, message)
+	}
+	wrote, err := ftpConn.controlWriter.WriteString(message)
+	if err != nil {
+		return 0, err
+	}
+	if err := ftpConn.controlWriter.Flush(); err != nil {
+		return 0, err
+	}
+	return wrote, nil
 }
 
 // buildPath takes a client supplied path or filename and generates a safe
@@ -187,57 +243,62 @@ func (ftpConn *ftpConn) remoteIP() string {
 	return rAddr.IP.String()
 }
 
-// sendOutofbandData will copy data from reader to the client via the currently
+// sendOutOfBandData will copy data from reader to the client via the currently
 // open data socket. Assumes the socket is open and ready to be used.
-func (ftpConn *ftpConn) sendOutofbandReader(reader io.Reader) {
+func (ftpConn *ftpConn) sendOutOfBandReader(reader io.Reader) error {
 	defer ftpConn.dataConn.Close()
 
+	var errs error
 	_, err := io.Copy(ftpConn.dataConn, reader)
-
 	if err != nil {
-		ftpConn.logger.Printf("sendOutofbandReader copy error %s", err)
-		ftpConn.writeMessage(550, "Action not taken")
-		return
+		errs = multierror.Append(errs, err)
+		if _, err := ftpConn.writeMessage(550, "Action not taken"); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+		return errs
 	}
 
-	ftpConn.writeMessage(226, "Transfer complete.")
+	if _, err := ftpConn.writeMessage(226, "Transfer complete."); err != nil {
+		return err
+	}
 
 	// Chrome dies on localhost if we close connection to soon
 	time.Sleep(10 * time.Millisecond)
+	return nil
 }
 
-// sendOutofbandData will send a string to the client via the currently open
+// sendOutOfBandData will send a string to the client via the currently open
 // data socket. Assumes the socket is open and ready to be used.
-func (ftpConn *ftpConn) sendOutofbandData(data string) {
-	ftpConn.sendOutofbandReader(bytes.NewReader([]byte(data)))
+func (ftpConn *ftpConn) sendOutOfBandData(data string) error {
+	return ftpConn.sendOutOfBandReader(bytes.NewReader([]byte(data)))
 }
 
-func (ftpConn *ftpConn) newPassiveSocket() (socket *ftpPassiveSocket, err error) {
+func (ftpConn *ftpConn) newPassiveSocket() (*ftpPassiveSocket, error) {
 	if ftpConn.dataConn != nil {
 		ftpConn.dataConn.Close()
 		ftpConn.dataConn = nil
 	}
 
-	socket, err = newPassiveSocket(ftpConn.localIP(), ftpConn.minDataPort, ftpConn.maxDataPort, ftpConn.logger)
-
-	if err == nil {
-		ftpConn.dataConn = socket
+	socket, err := newPassiveSocket(ftpConn.localIP(), ftpConn.minDataPort, ftpConn.maxDataPort, ftpConn.logger)
+	if err != nil {
+		return nil, err
 	}
 
-	return
+	ftpConn.dataConn = socket
+	return socket, nil
 }
 
-func (ftpConn *ftpConn) newActiveSocket(host string, port int) (socket *ftpActiveSocket, err error) {
+func (ftpConn *ftpConn) newActiveSocket(host string, port int) (*ftpActiveSocket, error) {
 	if ftpConn.dataConn != nil {
 		ftpConn.dataConn.Close()
 		ftpConn.dataConn = nil
 	}
 
-	socket, err = newActiveSocket(host, port, ftpConn.logger)
-
-	if err == nil {
-		ftpConn.dataConn = socket
+	socket, err := newActiveSocket(host, port, ftpConn.logger)
+	if err != nil {
+		return nil, err
 	}
 
-	return
+	ftpConn.dataConn = socket
+	return socket, nil
 }
