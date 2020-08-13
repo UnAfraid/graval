@@ -1,4 +1,4 @@
-# graval
+# graval ![Test](https://github.com/UnAfraid/graval/workflows/Test/badge.svg)
 
 An experimental FTP server framework. By providing a simple driver class that
 responds to a handful of methods you can have a complete FTP server.
