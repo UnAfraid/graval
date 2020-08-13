@@ -1,6 +1,6 @@
 module github.com/UnAfraid/graval
 
-go 1.12
+go 1.14
 
 require (
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869
