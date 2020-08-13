@@ -30,10 +30,17 @@ type FTPLogger interface {
 
 // Use an instance of this to log in a standard format
 type ftpLogger struct {
+	ftpLogLevel FtpLogLevel
 }
 
 func NewDefaultFtpLogger() FTPLogger {
-	return &ftpLogger{}
+	return NewDefaultFtpLoggerWithLevel(InfoLevel)
+}
+
+func NewDefaultFtpLoggerWithLevel(ftpLogLevel FtpLogLevel) FTPLogger {
+	return &ftpLogger{
+		ftpLogLevel: ftpLogLevel,
+	}
 }
 
 func (logger *ftpLogger) header(level string) {
@@ -41,52 +48,68 @@ func (logger *ftpLogger) header(level string) {
 }
 
 func (logger *ftpLogger) Info(args ...interface{}) {
-	logger.header("INFO")
-	log.Println(args...)
+	if logger.ftpLogLevel <= InfoLevel {
+		logger.header("INFO")
+		log.Println(args...)
+	}
 }
 
 func (logger *ftpLogger) Infof(format string, args ...interface{}) {
-	logger.header("INFO")
-	log.Printf(format, args...)
-	if !strings.HasPrefix(format, "\n") {
-		log.Println()
+	if logger.ftpLogLevel <= InfoLevel {
+		logger.header("INFO")
+		log.Printf(format, args...)
+		if !strings.HasPrefix(format, "\n") {
+			log.Println()
+		}
 	}
 }
 func (logger *ftpLogger) Warn(args ...interface{}) {
-	logger.header("WARN")
-	log.Println(args...)
+	if logger.ftpLogLevel <= WarnLevel {
+		logger.header("WARN")
+		log.Println(args...)
+	}
 }
 
 func (logger *ftpLogger) Warnf(format string, args ...interface{}) {
-	logger.header("WARN")
-	log.Printf(format, args...)
-	if !strings.HasPrefix(format, "\n") {
-		log.Println()
+	if logger.ftpLogLevel <= WarnLevel {
+		logger.header("WARN")
+		log.Printf(format, args...)
+		if !strings.HasPrefix(format, "\n") {
+			log.Println()
+		}
 	}
 }
 
 func (logger *ftpLogger) Error(args ...interface{}) {
-	logger.header("ERROR")
-	log.Println(args...)
+	if logger.ftpLogLevel <= ErrorLevel {
+		logger.header("ERROR")
+		log.Println(args...)
+	}
 }
 
 func (logger *ftpLogger) Errorf(format string, args ...interface{}) {
-	logger.header("WARN")
-	log.Printf(format, args...)
-	if !strings.HasPrefix(format, "\n") {
-		log.Println()
+	if logger.ftpLogLevel <= ErrorLevel {
+		logger.header("ERROR")
+		log.Printf(format, args...)
+		if !strings.HasPrefix(format, "\n") {
+			log.Println()
+		}
 	}
 }
 
 func (logger *ftpLogger) Debug(args ...interface{}) {
-	logger.header("WARN")
-	log.Println(args...)
+	if logger.ftpLogLevel <= DebugLevel {
+		logger.header("DEBUG")
+		log.Println(args...)
+	}
 }
 
 func (logger *ftpLogger) Debugf(format string, args ...interface{}) {
-	logger.header("DEBUG")
-	log.Printf(format, args...)
-	if !strings.HasPrefix(format, "\n") {
-		log.Println()
+	if logger.ftpLogLevel <= DebugLevel {
+		logger.header("DEBUG")
+		log.Printf(format, args...)
+		if !strings.HasPrefix(format, "\n") {
+			log.Println()
+		}
 	}
 }

@@ -6,6 +6,7 @@ responds to a handful of methods you can have a complete FTP server.
 Some sample use cases include persisting data to:
 
 * an Amazon S3 bucket
+* a Google cloud storage bucket
 * a relational database
 * redis
 * memory
@@ -13,11 +14,11 @@ Some sample use cases include persisting data to:
 There is a sample in-memory driver available - see the usage instructions below
 for the steps to use it.
 
-Full documentation for the package is available on [godoc](http://godoc.org/github.com/yob/graval)
+Full documentation for the package is available on [godoc](http://godoc.org/github.com/UnAfraid/graval)
 
 ## Installation
 
-    go get github.com/yob/graval
+    go get github.com/UnAfraid/graval
 
 ## Usage
 
@@ -27,7 +28,7 @@ persistence layer - the required driver contract is listed below.
 There is a sample in-memory driver available as a demo. You can build it with
 this command:
 
-    go install github.com/yob/graval/graval-mem
+    go install github.com/UnAfraid/graval/graval-mem
 
 Then run it:
 
@@ -43,7 +44,7 @@ details:
 ### The Driver Contract
 
 Your driver MUST implement a number of simple methods. You can view the required
-contract in the package docs on [godoc](http://godoc.org/github.com/yob/graval)
+contract in the package docs on [godoc](http://godoc.org/github.com/UnAfraid/graval)
 
 ## Contributors
 
@@ -89,5 +90,4 @@ RFC114 from 1971, "A File Transfer Protocol"
 
 This library is heavily based on [em-ftpd](https://github.com/yob/em-ftpd), an FTPd
 framework with similar design goals within the ruby and EventMachine ecosystems. It
-worked well enough, but you know, callbacks and event loops make me something
-something.
+worked well enough, but you know, callbacks and event loops make me something.

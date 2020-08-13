@@ -7,8 +7,8 @@
 //
 // USAGE:
 //
-//    go get github.com/yob/graval
-//    go install github.com/yob/graval/graval-mem
+//    go get github.com/UnAfraid/graval
+//    go install github.com/UnAfraid/graval/graval-mem
 //    ./bin/graval-mem
 //
 package main
