@@ -41,7 +41,7 @@ type MemDriver struct{}
 func (driver *MemDriver) Authenticate(user string, pass string, remoteIp string) (bool, error) {
 	return user == "test" && pass == "1234", nil
 }
-func (driver *MemDriver) Bytes(path string) (bytes int64) {
+func (driver *MemDriver) Bytes(path string) (bytes int64, err error) {
 	switch path {
 	case "/one.txt":
 		bytes = int64(len(fileOne))
@@ -57,10 +57,10 @@ func (driver *MemDriver) Bytes(path string) (bytes int64) {
 func (driver *MemDriver) ModifiedTime(path string) (time.Time, error) {
 	return time.Now(), nil
 }
-func (driver *MemDriver) ChangeDir(path string) bool {
-	return path == "/" || path == "/files"
+func (driver *MemDriver) ChangeDir(path string) (bool, error) {
+	return path == "/" || path == "/files", nil
 }
-func (driver *MemDriver) DirContents(path string) (files []os.FileInfo) {
+func (driver *MemDriver) DirContents(path string) (files []os.FileInfo, err error) {
 	files = []os.FileInfo{}
 	switch path {
 	case "/":
@@ -69,20 +69,20 @@ func (driver *MemDriver) DirContents(path string) (files []os.FileInfo) {
 	case "/files":
 		files = append(files, graval.NewFileItem("two.txt", int64(len(fileOne)), time.Now()))
 	}
-	return files
+	return files, nil
 }
 
-func (driver *MemDriver) DeleteDir(path string) bool {
-	return false
+func (driver *MemDriver) DeleteDir(path string) (bool, error) {
+	return false, nil
 }
-func (driver *MemDriver) DeleteFile(path string) bool {
-	return false
+func (driver *MemDriver) DeleteFile(path string) (bool, error) {
+	return false, nil
 }
-func (driver *MemDriver) Rename(fromPath string, toPath string) bool {
-	return false
+func (driver *MemDriver) Rename(fromPath string, toPath string) (bool, error) {
+	return false, nil
 }
-func (driver *MemDriver) MakeDir(path string) bool {
-	return false
+func (driver *MemDriver) MakeDir(path string) (bool, error) {
+	return false, nil
 }
 func (driver *MemDriver) GetFile(path string) (reader io.ReadCloser, err error) {
 	switch path {
@@ -93,8 +93,8 @@ func (driver *MemDriver) GetFile(path string) (reader io.ReadCloser, err error) 
 	}
 	return
 }
-func (driver *MemDriver) PutFile(destPath string, data io.Reader) bool {
-	return false
+func (driver *MemDriver) PutFile(destPath string, data io.Reader) (bool, error) {
+	return false, nil
 }
 
 // graval requires a factory that will create a new driver instance for each

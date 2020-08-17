@@ -111,7 +111,12 @@ func (cmd commandCwd) RequireAuth() bool {
 
 func (cmd commandCwd) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
-	if conn.driver.ChangeDir(path) {
+	changeDir, err := conn.driver.ChangeDir(path)
+	if err != nil {
+		return fmt.Errorf("failed to execute CWD: %w", err)
+	}
+
+	if changeDir {
 		conn.namePrefix = path
 		_, err := conn.writeMessage(250, "Directory changed to "+path)
 		return err
@@ -135,7 +140,12 @@ func (cmd commandDele) RequireAuth() bool {
 
 func (cmd commandDele) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
-	if conn.driver.DeleteFile(path) {
+	deleteFile, err := conn.driver.DeleteFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to execute DELE: %w", err)
+	}
+
+	if deleteFile {
 		_, err := conn.writeMessage(250, "File deleted")
 		return err
 	} else {
@@ -266,7 +276,10 @@ func (cmd commandList) Execute(conn *ftpConn, param string) error {
 		param = ""
 	}
 	path := conn.buildPath(param)
-	files := conn.driver.DirContents(path)
+	files, err := conn.driver.DirContents(path)
+	if err != nil {
+		return fmt.Errorf("failed to execute LIST: %w", err)
+	}
 	formatter := newListFormatter(files)
 	return conn.sendOutOfBandData(formatter.Detailed())
 }
@@ -293,7 +306,11 @@ func (cmd commandNlst) Execute(conn *ftpConn, param string) error {
 		param = ""
 	}
 	path := conn.buildPath(param)
-	files := conn.driver.DirContents(path)
+	files, err := conn.driver.DirContents(path)
+	if err != nil {
+		return fmt.Errorf("failed to execute NLST: %w", err)
+	}
+
 	formatter := newListFormatter(files)
 	return conn.sendOutOfBandData(formatter.Short())
 }
@@ -339,12 +356,17 @@ func (cmd commandMkd) RequireAuth() bool {
 
 func (cmd commandMkd) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
-	if conn.driver.MakeDir(path) {
+	makeDir, err := conn.driver.MakeDir(path)
+	if err != nil {
+		return fmt.Errorf("failed to execute MKD: %w", err)
+	}
+
+	if makeDir {
 		_, err := conn.writeMessage(257, "Directory created")
 		return err
 	}
 
-	_, err := conn.writeMessage(550, "Action not taken")
+	_, err = conn.writeMessage(550, "Action not taken")
 	return err
 }
 
@@ -642,12 +664,17 @@ func (cmd commandRnto) Execute(conn *ftpConn, param string) error {
 	}
 
 	toPath := conn.buildPath(param)
-	if conn.driver.Rename(conn.renameFrom, toPath) {
+	rename, err := conn.driver.Rename(conn.renameFrom, toPath)
+	if err != nil {
+		return fmt.Errorf("failed to execute RNTO: %w", err)
+	}
+
+	if rename {
 		_, err := conn.writeMessage(250, "File renamed")
 		return err
 	}
 
-	_, err := conn.writeMessage(550, "Action not taken")
+	_, err = conn.writeMessage(550, "Action not taken")
 	return err
 }
 
@@ -665,12 +692,17 @@ func (cmd commandRmd) RequireAuth() bool {
 
 func (cmd commandRmd) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
-	if conn.driver.DeleteDir(path) {
+	deleteDir, err := conn.driver.DeleteDir(path)
+	if err != nil {
+		return fmt.Errorf("failed to execute RMD: %w", err)
+	}
+
+	if deleteDir {
 		_, err := conn.writeMessage(250, "Directory deleted")
 		return err
 	}
 
-	_, err := conn.writeMessage(550, "Action not taken")
+	_, err = conn.writeMessage(550, "Action not taken")
 	return err
 }
 
@@ -688,13 +720,17 @@ func (cmd commandSize) RequireAuth() bool {
 
 func (cmd commandSize) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
-	bytes := conn.driver.Bytes(path)
+	bytes, err := conn.driver.Bytes(path)
+	if err != nil {
+		return fmt.Errorf("failed to execute SIZE: %w", err)
+	}
+
 	if bytes >= 0 {
 		_, err := conn.writeMessage(213, fmt.Sprintf("%d", bytes))
 		return err
 	}
 
-	_, err := conn.writeMessage(450, "file not available")
+	_, err = conn.writeMessage(450, "file not available")
 	return err
 }
 
@@ -716,12 +752,17 @@ func (cmd commandStor) Execute(conn *ftpConn, param string) error {
 		return err
 	}
 
-	if ok := conn.driver.PutFile(targetPath, conn.dataConn); ok {
+	putFile, err := conn.driver.PutFile(targetPath, conn.dataConn)
+	if err != nil {
+		return fmt.Errorf("failed to execute STOR: %w", err)
+	}
+
+	if putFile {
 		_, err := conn.writeMessage(226, "Transfer complete.")
 		return err
 	}
 
-	_, err := conn.writeMessage(450, "error during transfer")
+	_, err = conn.writeMessage(450, "error during transfer")
 	return err
 }
 
