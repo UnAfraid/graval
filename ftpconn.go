@@ -3,12 +3,10 @@ package graval
 import (
 	"bufio"
 	"bytes"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -45,25 +43,12 @@ func newFtpConn(tcpConn net.Conn, driver FTPDriver, ftpLogger FTPLogger, serverN
 	c.controlReader = bufio.NewReader(tcpConn)
 	c.controlWriter = bufio.NewWriter(tcpConn)
 	c.driver = driver
-	c.sessionId = newSessionId()
 	c.logger = ftpLogger
 	c.serverName = serverName
 	c.minDataPort = minPort
 	c.maxDataPort = maxPort
 	c.pasvAdvertisedIp = pasvAdvertisedIp
 	return c
-}
-
-// returns a random 20 char string that can be used as a unique session ID
-func newSessionId() string {
-	hash := sha256.New()
-	_, err := io.CopyN(hash, rand.Reader, 50)
-	if err != nil {
-		return "????????????????????"
-	}
-	md := hash.Sum(nil)
-	mdStr := hex.EncodeToString(md)
-	return mdStr[0:20]
 }
 
 // Serve starts an endless loop that reads FTP commands from the client and
@@ -104,7 +89,7 @@ func (ftpConn *ftpConn) Serve() error {
 
 		if err := ftpConn.receiveLine(line); err != nil {
 			if ftpConn.logger != nil {
-				ftpConn.logger.Warnf("failed to process line: %s - %v", line, err)
+				ftpConn.logger.Warnf("failed to process line: %s for client: %s %v", line, ftpConn.remoteIP(), err)
 			}
 		}
 	}
@@ -219,11 +204,10 @@ func (ftpConn *ftpConn) writeLines(code int, lines ...string) (int, error) {
 // Obviously they MUST NOT just read the path off disk. The probably want to
 // prefix the path with something to scope the users access to a sandbox.
 func (ftpConn *ftpConn) buildPath(filename string) (fullPath string) {
-	fullPath = strings.Replace(fullPath, "\\", "/", -1)
-	if len(filename) > 0 && filename[0:1] == "/" {
+	if len(filename) > 0 && filename[0] == '/' {
 		fullPath = filepath.Clean(filename)
 	} else if len(filename) > 0 {
-		fullPath = filepath.Clean(ftpConn.namePrefix + "/" + filename)
+		fullPath = filepath.Clean(path.Join(ftpConn.namePrefix, filename))
 	} else {
 		fullPath = filepath.Clean(ftpConn.namePrefix)
 	}

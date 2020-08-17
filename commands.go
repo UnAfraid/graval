@@ -113,7 +113,7 @@ func (cmd commandCwd) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
 	changeDir, err := conn.driver.ChangeDir(path)
 	if err != nil {
-		return fmt.Errorf("failed to execute CWD: %w", err)
+		return fmt.Errorf("failed to execute CWD path: %s - %w", path, err)
 	}
 
 	if changeDir {
@@ -142,7 +142,7 @@ func (cmd commandDele) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
 	deleteFile, err := conn.driver.DeleteFile(path)
 	if err != nil {
-		return fmt.Errorf("failed to execute DELE: %w", err)
+		return fmt.Errorf("failed to execute DELE path: path - %w", err)
 	}
 
 	if deleteFile {
@@ -278,7 +278,7 @@ func (cmd commandList) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
 	files, err := conn.driver.DirContents(path)
 	if err != nil {
-		return fmt.Errorf("failed to execute LIST: %w", err)
+		return fmt.Errorf("failed to execute LIST path: %s - %w", path, err)
 	}
 	formatter := newListFormatter(files)
 	return conn.sendOutOfBandData(formatter.Detailed())
@@ -308,7 +308,7 @@ func (cmd commandNlst) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
 	files, err := conn.driver.DirContents(path)
 	if err != nil {
-		return fmt.Errorf("failed to execute NLST: %w", err)
+		return fmt.Errorf("failed to execute NLST path: %s - %w", path, err)
 	}
 
 	formatter := newListFormatter(files)
@@ -358,7 +358,7 @@ func (cmd commandMkd) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
 	makeDir, err := conn.driver.MakeDir(path)
 	if err != nil {
-		return fmt.Errorf("failed to execute MKD: %w", err)
+		return fmt.Errorf("failed to execute MKD: %s - %w", path, err)
 	}
 
 	if makeDir {
@@ -666,7 +666,7 @@ func (cmd commandRnto) Execute(conn *ftpConn, param string) error {
 	toPath := conn.buildPath(param)
 	rename, err := conn.driver.Rename(conn.renameFrom, toPath)
 	if err != nil {
-		return fmt.Errorf("failed to execute RNTO: %w", err)
+		return fmt.Errorf("failed to execute RNTO from: %s to: %s - %w", conn.renameFrom, toPath, err)
 	}
 
 	if rename {
@@ -694,7 +694,7 @@ func (cmd commandRmd) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
 	deleteDir, err := conn.driver.DeleteDir(path)
 	if err != nil {
-		return fmt.Errorf("failed to execute RMD: %w", err)
+		return fmt.Errorf("failed to execute RMD path: %s - %w", path, err)
 	}
 
 	if deleteDir {
@@ -722,7 +722,7 @@ func (cmd commandSize) Execute(conn *ftpConn, param string) error {
 	path := conn.buildPath(param)
 	bytes, err := conn.driver.Bytes(path)
 	if err != nil {
-		return fmt.Errorf("failed to execute SIZE: %w", err)
+		return fmt.Errorf("failed to execute SIZE path: %s - %w", path, err)
 	}
 
 	if bytes >= 0 {
@@ -754,7 +754,7 @@ func (cmd commandStor) Execute(conn *ftpConn, param string) error {
 
 	putFile, err := conn.driver.PutFile(targetPath, conn.dataConn)
 	if err != nil {
-		return fmt.Errorf("failed to execute STOR: %w", err)
+		return fmt.Errorf("failed to execute STOR path: %s - %w", targetPath, err)
 	}
 
 	if putFile {
